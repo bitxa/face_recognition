@@ -1,68 +1,98 @@
+import cv2
+from add_face.new_face_window import AddMediaWindow
+from live_recognition.live_recognition import LiveRecognitionThread
 import wx
 import os
-import shutil
-from video_capture_module import capture_frames  # Make sure to define this module
-from face_recognition_module import perform_face_recognition  # Define this module
-import face_recognition
-class FaceRecognitionApp(wx.Frame):
-    
-    def __init__(self, parent, title):
-        super(FaceRecognitionApp, self).__init__(parent, title=title, size=(400, 200))
 
+from photo_video_recognition.photo_video_recognition import PhotoVideoRecognitionWindow
+
+
+class FaceRecognitionApp(wx.Frame):
+
+    def __init__(self, parent, title):
+        super(FaceRecognitionApp, self).__init__(
+            parent, title=title, size=(400, 300))
         self.InitUI()
         self.Centre()
         self.Show()
 
     def InitUI(self):
         panel = wx.Panel(self)
+        # Pastel purple background for the panel
+        panel.SetBackgroundColour('#52575D')
+
         vbox = wx.BoxSizer(wx.VERTICAL)
-        
-        self.add_face_button = wx.Button(panel, label='Add Face')
-        self.add_face_button.Bind(wx.EVT_BUTTON, self.OnAddFace)
-        vbox.Add(self.add_face_button, flag=wx.EXPAND|wx.LEFT|wx.RIGHT|wx.TOP, border=10)
-        
-        self.open_recognizer_button = wx.Button(panel, label='Open Recognizer')
-        self.open_recognizer_button.Bind(wx.EVT_BUTTON, self.OnOpenRecognizer)
-        vbox.Add(self.open_recognizer_button, flag=wx.EXPAND|wx.LEFT|wx.RIGHT|wx.TOP, border=10)
-        
-        self.reset_recognizer_button = wx.Button(panel, label='Reset Recognizer')
-        self.reset_recognizer_button.Bind(wx.EVT_BUTTON, self.OnResetRecognizer)
-        vbox.Add(self.reset_recognizer_button, flag=wx.EXPAND|wx.LEFT|wx.RIGHT|wx.TOP, border=10)
-        
+
+        self.add_face_button = self.createButtonWithIcon(
+            panel, "Añadir nuevo rostro", "assets/icons/face.png", self.OnAddFace)
+        vbox.Add(self.add_face_button, flag=wx.EXPAND |
+                 wx.LEFT | wx.RIGHT | wx.TOP, border=25)
+
+        self.live_recognition_button = self.createButtonWithIcon(
+            panel, "Reconocimiento facial en vivo", "assets/icons/photo.png", self.OnLiveRecognition)
+        vbox.Add(self.live_recognition_button, flag=wx.EXPAND |
+                 wx.LEFT | wx.RIGHT | wx.TOP, border=25)
+
+        self.photo_video_recognition_button = self.createButtonWithIcon(
+            panel, "Reconocimiento de foto o video", "assets/icons/live.png", self.OnPhotoVideoRecognition)
+        vbox.Add(self.photo_video_recognition_button, flag=wx.EXPAND |
+                 wx.LEFT | wx.RIGHT | wx.TOP, border=25)
+
         panel.SetSizer(vbox)
+    
+    def createButtonWithIcon(self, parent, label, iconPath, eventHandler):
+        button = wx.Button(parent, -1, label)
+        button.Bind(wx.EVT_BUTTON, eventHandler)
+        # Pastel red background for the button
+        button.SetBackgroundColour('#52575D')
+        # Dark text color for better contrast
+        button.SetForegroundColour('#3d3d3d')
+        if os.path.exists(iconPath):
+            image = wx.Image(iconPath, wx.BITMAP_TYPE_ANY).Scale(
+                50, 50, wx.IMAGE_QUALITY_HIGH)
+            bitmap = wx.Bitmap(image)
+            button.SetBitmap(bitmap, wx.LEFT)
+            button.SetBitmapMargins((10, 10))
+        return button
 
     def OnAddFace(self, event):
-        with wx.TextEntryDialog(self, "Enter the person's name", "Add Face") as dialog:
-            if dialog.ShowModal() == wx.ID_OK:
-                name = dialog.GetValue()
-                if name:
-                    capture_frames(name)
+        add_media_window = AddMediaWindow(self, title='Add Media')
+        add_media_window.Show()
+        pass
 
-    def OnOpenRecognizer(self, event):
-        # Placeholder for face recognition logic
-        known_face_encodings, known_face_names = [], []
-        base_dir = "captured_faces"
-        for name in os.listdir(base_dir):
-            person_dir = os.path.join(base_dir, name)
-            if os.path.isdir(person_dir):
-                for filename in os.listdir(person_dir):
-                    if filename.endswith(".jpg"):
-                        image_path = os.path.join(person_dir, filename)
-                        image = face_recognition.load_image_file(image_path)
-                        encodings = face_recognition.face_encodings(image)
-                        if encodings:
-                            known_face_encodings.append(encodings[0])
-                            known_face_names.append(name)
-        perform_face_recognition(known_face_encodings, known_face_names)
+    def OnLiveRecognition(self, event):
+        cap = cv2.VideoCapture(0)
+        while True:
+            ret, frame = cap.read()
+            if not ret:
+                print("Failed to grab frame")
+                break
 
-    def OnResetRecognizer(self, event):
-        shutil.rmtree("captured_faces", ignore_errors=True)
-        wx.MessageBox('Recognizer has been reset.', 'Info', wx.OK | wx.ICON_INFORMATION)
+            frame = cv2.flip(frame, 1)
+            recognizer = LiveRecognitionThread(frame, "images")
+            recognizer.start()
+            recognizer.join()
+
+            cv2.imshow('Video Feed', frame)
+
+            if cv2.waitKey(1) & 0xFF == ord('q'):
+                break
+
+        cap.release()
+        cv2.destroyAllWindows()
+        pass
+
+    def OnPhotoVideoRecognition(self, event):
+        recognition_window = PhotoVideoRecognitionWindow(self, title='Photo/Video Recognition')
+        recognition_window.Show()
+        pass
 
 def main():
     app = wx.App()
-    ex = FaceRecognitionApp(None, title='Face Recognition System')
+    ex = FaceRecognitionApp(None, title='Sistema de Reconocimiento Facial')
     app.MainLoop()
+
 
 if __name__ == '__main__':
     main()
+
