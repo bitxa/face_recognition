@@ -39,7 +39,7 @@ class FaceRecognitionApp(wx.Frame):
                  wx.LEFT | wx.RIGHT | wx.TOP, border=25)
 
         panel.SetSizer(vbox)
-    
+
     def createButtonWithIcon(self, parent, label, iconPath, eventHandler):
         button = wx.Button(parent, -1, label)
         button.Bind(wx.EVT_BUTTON, eventHandler)
@@ -56,7 +56,7 @@ class FaceRecognitionApp(wx.Frame):
         return button
 
     def OnAddFace(self, event):
-        add_media_window = AddMediaWindow(self, title='Add Media')
+        add_media_window = AddMediaWindow(self, title='Añadir archivos')
         add_media_window.Show()
         pass
 
@@ -69,7 +69,7 @@ class FaceRecognitionApp(wx.Frame):
                 break
 
             frame = cv2.flip(frame, 1)
-            recognizer = LiveRecognitionThread(frame, "images")
+            recognizer = LiveRecognitionThread(frame, 'images')
             recognizer.start()
             recognizer.join()
 
@@ -83,9 +83,11 @@ class FaceRecognitionApp(wx.Frame):
         pass
 
     def OnPhotoVideoRecognition(self, event):
-        recognition_window = PhotoVideoRecognitionWindow(self, title='Photo/Video Recognition')
+        recognition_window = PhotoVideoRecognitionWindow(
+            self, title='Photo/Video Recognition')
         recognition_window.Show()
         pass
+
 
 def main():
     app = wx.App()
@@ -95,4 +97,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
