@@ -1,9 +1,9 @@
+import threading
 import numpy as np
 import wx
 import cv2
 
 from live_recognition.live_recognition import LiveRecognitionThread
-
 
 class PhotoVideoRecognitionWindow(wx.Frame):
 
@@ -34,11 +34,11 @@ class PhotoVideoRecognitionWindow(wx.Frame):
         self.analyze_button.Bind(wx.EVT_BUTTON, self.OnAnalyzeFace)
         vbox.Add(self.analyze_button, flag=wx.EXPAND | wx.ALL, border=10)
 
-        panel.SetSizer(vbox)
-        
         self.close_button = wx.Button(panel, label='Cerrar visualización')
         self.close_button.Bind(wx.EVT_BUTTON, self.OnCloseMedia)
         vbox.Add(self.close_button, flag=wx.EXPAND | wx.ALL, border=10)
+
+        panel.SetSizer(vbox)
 
     def OnLoadMedia(self, event):
         with wx.FileDialog(self, "Escoge una foto o video",
@@ -70,56 +70,47 @@ class PhotoVideoRecognitionWindow(wx.Frame):
         self.Layout()
 
     def display_video_frame(self, video_path):
+        # Start video processing in a separate thread
+        self.video_processing_thread = threading.Thread(target=self.process_and_display_video, args=(video_path,))
+        self.video_processing_thread.start()
+
+    def process_and_display_video(self, video_path):
         cap = cv2.VideoCapture(video_path)
-        ret, frame = cap.read()
-        if ret:
-            # Convert to RGB for wx.Image
+        while cap.isOpened():
+            ret, frame = cap.read()
+            if not ret:
+                break
+
+            # Process frame for face recognition
+            self.process_frame_for_recognition(frame)
+
+            # Convert frame to wx.Image and display it
+            wx.CallAfter(self.update_gui_with_frame, frame)
+
+        cap.release()
+
+    def process_frame_for_recognition(self, frame):
+        # Perform face recognition on the frame
+        recognizer = LiveRecognitionThread(frame, "images")
+        recognizer.start()
+        recognizer.join()
+        # Note: Adjust this method based on your face recognition logic
+
+    def update_gui_with_frame(self, frame):
+        if frame is not None:
             frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             height, width = frame.shape[:2]
             wx_frame = wx.Image(width, height, frame.flatten())
             W, H = self.image_display.GetSize().Get()
             wx_frame = wx_frame.Scale(W, H, wx.IMAGE_QUALITY_HIGH)
             self.image_display.SetBitmap(wx.Bitmap(wx_frame))
-            self.Layout()
-        cap.release()
-
-    def analyze_frame(self, frame):
-        # Start face recognition in a separate thread
-        recognizer = LiveRecognitionThread(frame, "images")
-        recognizer.start()
-        recognizer.join()
-    
-        while True:
-            # Show the frame
-            cv2.imshow('Frame Analysis', frame)
-    
-            # Check for 'q' key press or if the window is closed
-            if cv2.waitKey(1) & 0xFF == ord('q') or cv2.getWindowProperty('Frame Analysis', 0) < 0:
-                break
-    
-        cv2.destroyAllWindows()
-
-            
-            
-
-    def analyze_video(self, video_path):
-        cap = cv2.VideoCapture(video_path)
-        while cap.isOpened():
-            ret, frame = cap.read()
-            if not ret:
-                break
-            self.analyze_frame(frame)
-            if cv2.waitKey(1) & 0xFF == ord('q'):
-                break
-        cap.release()
-        cv2.destroyAllWindows()
+            self.Refresh()
 
     def OnAnalyzeFace(self, event):
         if self.loaded_media is not None:
-            # Check if it's an image (NumPy array)
             if isinstance(self.loaded_media, np.ndarray):
                 self.analyze_frame(self.loaded_media)  # Analyze the image
-            elif isinstance(self.loaded_media, str):  # Check if it's a video path
+            elif isinstance(self.loaded_media, str):
                 self.analyze_video(self.loaded_media)  # Analyze the video
             else:
                 wx.MessageBox('Archivo no admitido para el análisis.',
@@ -129,16 +120,17 @@ class PhotoVideoRecognitionWindow(wx.Frame):
                           'Error', wx.OK | wx.ICON_ERROR)
 
     def OnCloseMedia(self, event):
-        cv2.destroyAllWindows()  # This will close all cv2 windows
-        self.loaded_media = None  # Reset the loaded media
-        # Optionally, clear the image display if needed
-        self.image_display.SetBitmap(wx.Bitmap(wx.Image(1, 1)))  # Set an empty bitmap
+        if hasattr(self, 'video_processing_thread'):
+            self.video_processing_thread.join()
+        cv2.destroyAllWindows()
+        self.loaded_media = None
+        self.image_display.SetBitmap(wx.Bitmap(wx.Image(1, 1)))
         self.Layout()
+
 def main():
     app = wx.App(False)
     frame = PhotoVideoRecognitionWindow(None, title='Reconocimiento de foto/video.')
     app.MainLoop()
-
 
 if __name__ == '__main__':
     main()

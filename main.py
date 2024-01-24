@@ -11,7 +11,7 @@ class FaceRecognitionApp(wx.Frame):
 
     def __init__(self, parent, title):
         super(FaceRecognitionApp, self).__init__(
-            parent, title=title, size=(400, 300))
+            parent, title=title, size=(1000, 560))
         self.InitUI()
         self.Centre()
         self.Show()

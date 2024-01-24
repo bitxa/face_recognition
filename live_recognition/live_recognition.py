@@ -16,7 +16,7 @@ class LiveRecognitionThread(threading.Thread):
     def run(self):
         # Detect faces in the frame
         detected_faces = functions.extract_faces(
-            self.frame, detector_backend="fastmtcnn", enforce_detection=False)
+        self.frame, detector_backend='mtcnn', enforce_detection=False)
         print(f"DETECTED FACES {detected_faces}")
 
         for face_info in detected_faces:
@@ -33,7 +33,7 @@ class LiveRecognitionThread(threading.Thread):
 
                 # Recognize the cropped face
                 identified_faces = DeepFace.find(
-                    face_img, db_path=self.folder_path, enforce_detection=False, model_name="ArcFace", detector_backend="fastmtcnn")
+                    face_img, db_path=self.folder_path, enforce_detection=False, detector_backend='mtcnn', model_name="SFace")
                 print(f"IDENTIFIED FACES {identified_faces}")
 
                 # If we have identified faces, we take the first match (highest probability)
@@ -43,7 +43,7 @@ class LiveRecognitionThread(threading.Thread):
                     name = os.path.basename(
                         os.path.dirname(identity))  # Extract the name
                     cv2.putText(self.frame, name, (x, y - 10),
-                                cv2.FONT_HERSHEY_SIMPLEX, 0.9, (36, 255, 12), 2)
+                                cv2.FONT_HERSHEY_SIMPLEX, 1.5,(36, 255, 12), 2)
 
             except Exception as e:
                 print(f"Recognition error: {e}")
